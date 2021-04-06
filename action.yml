@@ -1,0 +1,52 @@
+name: 'Build Workflow Images'
+description: 'A Dispatchery V2 CI component - build Docker images for all workflows'
+author: 'Wistia'
+inputs:
+  repo_name:
+    description: 'Value of "github.event.repository.name"'
+    required: true
+  git_ref:
+    description: 'Value of "github.ref"'
+    required: true
+  git_sha:
+    description: 'Value of "github.sha"'
+    required: true
+  ecr_hostname:
+    description: 'ECR hostname - <aws_account>.dkr.ecr.<region>.amazonaws.com'
+    required: true
+outputs:
+  env:
+    description: "Environment"
+    value: ${{ steps.build-images.outputs.env }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Build Docker images that Argo workflows depend on
+      id: build-images
+      run: |
+        set -euo pipefail
+        cd "${INPUT_REPO_NAME}"
+        env="prod"
+        branch=$(echo "${INPUT_GIT_REF}" | awk -F 'refs/heads/' '{print $NF}')
+        if [[ ${branch} != "main" ]]; then env="dev"; fi
+        list_of_dockerfiles="$(find . -name 'Dockerfile*')"
+        if [[ ! -z ${list_of_dockerfiles} ]]; then
+          for dockerfile_path in ${list_of_dockerfiles}; do
+            echo "Building image for $dockerfile_path"
+            build_context_dir="$(dirname $dockerfile_path)"
+            job_name="$(basename $build_context_dir)"
+            # If a suffix is defined for the Dockerfile, use it as container_name.
+            dockerfile_name=$(basename ${dockerfile_path})
+            container_name="${dockerfile_name##*.}"
+            if [[ ${container_name} == "Dockerfile" ]]; then
+              container_name="default"
+            fi
+            # If the file is named 'Dockerfile', container_name is 'default'
+            tag="${INPUT_ECR_HOSTNAME}/${INPUT_REPO_NAME}:${job_name}-${container_name}-${env}-${INPUT_GIT_SHA}"
+
+            docker build -t "$tag" -f "$dockerfile_path" "$build_context_dir"
+            docker push $tag
+          done
+        fi
+        echo "::set-output name=env::$(echo ${env})"
+      shell: bash
