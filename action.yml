@@ -25,9 +25,9 @@ runs:
       id: build-images
       run: |
         set -euo pipefail
-        cd "${INPUT_REPO_NAME}"
+        cd "${{ inputs.repo_name }}"
         env="prod"
-        branch=$(echo "${INPUT_GIT_REF}" | awk -F 'refs/heads/' '{print $NF}')
+        branch=$(echo "${{ inputs.git_ref }}" | awk -F 'refs/heads/' '{print $NF}')
         if [[ ${branch} != "main" ]]; then env="dev"; fi
         list_of_dockerfiles="$(find . -name 'Dockerfile*')"
         if [[ ! -z ${list_of_dockerfiles} ]]; then
@@ -42,7 +42,7 @@ runs:
               container_name="default"
             fi
             # If the file is named 'Dockerfile', container_name is 'default'
-            tag="${INPUT_ECR_HOSTNAME}/${INPUT_REPO_NAME}:${job_name}-${container_name}-${env}-${INPUT_GIT_SHA}"
+            tag="${{ inputs.ecr_hostname }}/${{ inputs.repo_name }}:${job_name}-${container_name}-${env}-${{ inputs.git_sha }}"
 
             docker build -t "$tag" -f "$dockerfile_path" "$build_context_dir"
             docker push $tag
