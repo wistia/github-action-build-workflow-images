@@ -2,6 +2,9 @@ name: 'Build Workflow Images'
 description: 'A Dispatchery V2 CI component - build Docker images for all workflows'
 author: 'Wistia'
 inputs:
+  ecr_repo_name:
+    description: 'ECR repository for storing the built images'
+    required: true
   repo_name:
     description: 'Value of "github.event.repository.name"'
     required: true
@@ -42,7 +45,7 @@ runs:
               container_name="default"
             fi
             # If the file is named 'Dockerfile', container_name is 'default'
-            tag="${{ inputs.ecr_hostname }}/${{ inputs.repo_name }}:${job_name}-${container_name}-${env}-${{ inputs.git_sha }}"
+            tag="${{ inputs.ecr_hostname }}/${{ inputs.ecr_repo_name }}:${{ inputs.repo_name }}-${job_name}-${container_name}-${env}-${{ inputs.git_sha }}"
 
             docker build -t "$tag" -f "$dockerfile_path" "$build_context_dir"
             docker push $tag
