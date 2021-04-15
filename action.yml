@@ -8,19 +8,9 @@ inputs:
   repo_name:
     description: 'Value of "github.event.repository.name"'
     required: true
-  git_ref:
-    description: 'Value of "github.ref"'
-    required: true
-  git_sha:
-    description: 'Value of "github.sha"'
-    required: true
   ecr_hostname:
     description: 'ECR hostname - <aws_account>.dkr.ecr.<region>.amazonaws.com'
     required: true
-outputs:
-  env:
-    description: "Environment"
-    value: ${{ steps.build-images.outputs.env }}
 runs:
   using: 'composite'
   steps:
@@ -29,9 +19,6 @@ runs:
       run: |
         set -euo pipefail
         cd "${{ inputs.repo_name }}/argo-workflows"
-        env="prod"
-        branch=$(echo "${{ inputs.git_ref }}" | awk -F 'refs/heads/' '{print $NF}')
-        if [[ ${branch} != "main" ]]; then env="dev"; fi
         list_of_dockerfiles="$(find . -name 'Dockerfile*')"
         if [[ ! -z ${list_of_dockerfiles} ]]; then
           for dockerfile_path in ${list_of_dockerfiles}; do
@@ -45,11 +32,10 @@ runs:
               container_name="default"
             fi
             # If the file is named 'Dockerfile', container_name is 'default'
-            tag="${{ inputs.ecr_hostname }}/${{ inputs.ecr_repo_name }}:${{ inputs.repo_name }}-${job_name}-${container_name}-${env}-${{ inputs.git_sha }}"
+            tag="${{ inputs.ecr_hostname }}/${{ inputs.ecr_repo_name }}:${{ inputs.repo_name }}-${job_name}-${container_name}-${{ github.sha }}"
 
             docker build -t "$tag" -f "$dockerfile_path" "$build_context_dir"
             docker push $tag
           done
         fi
-        echo "::set-output name=env::$(echo ${env})"
       shell: bash
